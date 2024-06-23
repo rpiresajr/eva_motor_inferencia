@@ -79,6 +79,6 @@ class CassandraDB:
     
   def get_documents(self, question):
     vectorstore = self.ia.load_vectors_db()
-    documents = vectorstore.similarity_search(question, k=2)
+    documents = vectorstore.similarity_search(question, k=3)
     return documents
     

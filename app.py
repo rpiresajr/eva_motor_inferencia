@@ -18,11 +18,10 @@ memory.save_context({"human_input": "assistant"}, {"output": "Você é um repres
 def generate_response(input_text):
     llm = OpenAI(temperature=0.7, openai_api_key=openai_api_key)
     st.info(llm(input_text))
-
             
 def main(cass_db):
   st.title("E.V.A.")
-  with st.sidebar.form("form_upload"):
+  with st.sidebar.form("form_upload", clear_on_submit=True):
     docs = st.file_uploader("Insira seus arquivos", type="pdf", accept_multiple_files=True)
     if(st.form_submit_button("Enviar documentos", type='secondary')):
       for file in docs:
@@ -33,6 +32,7 @@ def main(cass_db):
   
   if "messages" not in st.session_state:
     st.session_state.messages = []
+    st.session_state.messages.append({"role": "assistant", "content": introduce_yourself(memory)})
   
   for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -47,9 +47,9 @@ def main(cass_db):
     with st.chat_message("assistant"):
       docs = cass_db.get_documents(prompt)
       
-      template = """Você é um chatbot conversando com um humano. Se não souber a resposta responda que não sabe.
+      template = """Você é um chatbot conversando com um humano. Se não souber a resposta responda que não sabe. Responda apenas se encontrado nos documentos.
 
-      Com as partes extraídas dos documentos e a pergunta, crie uma resposta final.
+      Com as partes extraídas dos documentos e a pergunta, crie uma resposta informal final.
 
       {context}
 
@@ -57,12 +57,8 @@ def main(cass_db):
       Human: {human_input}
       Chatbot:"""
 
-      prompt2 = PromptTemplate(
-        input_variables=["chat_history", "human_input", "context"], template=template
-      )
-      chain = load_qa_chain(
-        OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt2
-      )
+      prompt2 = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
+      chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt2)
 
       query = prompt
       result = chain({"input_documents": docs, "human_input": query}, return_only_outputs=True)
@@ -73,6 +69,25 @@ def main(cass_db):
       cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", sessionId)
       print(chain.memory.buffer)
     
+def introduce_yourself(memory):
+  template = """Você é um chatbot da empresa JAH conversando com um humano.
+
+  Com as partes extraídas dos documentos e a pergunta, crie uma resposta final.
+
+  {context}
+
+  {chat_history}
+  Human: {human_input}
+  Chatbot:"""
+
+  prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
+  chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt)
+
+  query = "Se apresente de maneira informal para o usuário falando sobre é um assistente da JAH e irá ajudá-lo"
+  result = chain({"input_documents": [], "human_input": query}, return_only_outputs=True)
+  return result['output_text']
+  # st.markdown(result['output_text'])
+  
 def extract_text(pdf):
   text = ""
   pdf_reader = PdfReader(pdf)
