@@ -12,7 +12,7 @@ class Open_AI:
   def __init__(self, db):
     self.db = db
     self.embedding = OpenAIEmbeddings(model='text-embedding-3-small')
-    self.llm = OpenAI(temperature=0)
+    self.llm = OpenAI(temperature=0, model="gpt-3.5-turbo")
     self.text_splitter = CharacterTextSplitter(separator="\n", chunk_size=1300, chunk_overlap=200, length_function=len)
     
     

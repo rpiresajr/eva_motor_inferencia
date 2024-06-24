@@ -1,6 +1,6 @@
 import time
 import streamlit as st
-from langchain_openai import OpenAI
+from langchain_openai import ChatOpenAI
 from langchain.chains import ConversationChain  
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
@@ -10,13 +10,13 @@ import uuid
 from cassandra_db import CassandraDB
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
-llm = OpenAI(temperature=0)
+# llm = OpenAI(temperature=0, model="gpt-3.5-turbo")
 sessionId = uuid.uuid4().hex
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
 memory.save_context({"human_input": "assistant"}, {"output": "Você é um representante comercial querendo vender um produto ou uma franquia. Lembre todas as perguntas que o humano fizer"})
 
 def generate_response(input_text):
-    llm = OpenAI(temperature=0.7, openai_api_key=openai_api_key)
+    llm = ChatOpenAI(temperature=0.7, openai_api_key=openai_api_key)
     st.info(llm(input_text))
             
 def main(cass_db):
@@ -58,7 +58,7 @@ def main(cass_db):
       Chatbot:"""
 
       prompt2 = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
-      chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt2)
+      chain = load_qa_chain(ChatOpenAI(temperature=0.4, model="gpt-4o"), chain_type="stuff", memory=memory, prompt=prompt2)
 
       query = prompt
       result = chain({"input_documents": docs, "human_input": query}, return_only_outputs=True)
@@ -81,7 +81,7 @@ def introduce_yourself(memory):
   Chatbot:"""
 
   prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
-  chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt)
+  chain = load_qa_chain(ChatOpenAI(temperature=0.9, model="gpt-4o"), chain_type="stuff", memory=memory, prompt=prompt)
 
   query = "Se apresente de maneira informal para o usuário falando sobre é um assistente da JAH e irá ajudá-lo"
   result = chain({"input_documents": [], "human_input": query}, return_only_outputs=True)

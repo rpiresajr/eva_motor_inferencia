@@ -28,6 +28,8 @@ class CassandraDB:
     self.ia = Open_AI(self)
 
   def write_vectors_from_text(self, text, filename):
+    ids = self.get_dup_documents(filename)
+    self.delete_dup(ids)
     page = 0
     date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
     docs = []
@@ -81,4 +83,27 @@ class CassandraDB:
     vectorstore = self.ia.load_vectors_db()
     documents = vectorstore.similarity_search(question, k=3)
     return documents
+  
+  def delete_dup(self, rows):
+    table_name = self.vector_table
+    
+    if not table_name:
+      raise ValueError('Necessário o nome da tabela.')
+    
+    ids = '('
+    for row in rows:
+      ids += f"'{row.row_id}',"
+    ids = ids[:-1]
+    ids = ids + ")"
+    print(ids)  
+    self.session.execute(f"DELETE FROM {self.keyspace}.{table_name} WHERE row_id IN {ids};")
+  
+  def get_dup_documents(self, filename):
+    table_name = self.vector_table
+    
+    if not table_name:
+      raise ValueError('Necessário o nome da tabela.')
+    
+    stmt = self.session.prepare(f"select row_id from {self.keyspace}.{table_name} WHERE metadata_s['source'] = '{filename}' ALLOW FILTERING;")
+    return self.session.execute(stmt)
     
