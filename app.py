@@ -10,15 +10,10 @@ import uuid
 from cassandra_db import CassandraDB
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
-# llm = OpenAI(temperature=0, model="gpt-3.5-turbo")
-sessionId = uuid.uuid4().hex
+sessionId = uuid.uuid1()
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
 memory.save_context({"human_input": "assistant"}, {"output": "Você é um representante comercial querendo vender um produto ou uma franquia. Lembre todas as perguntas que o humano fizer"})
 
-def generate_response(input_text):
-    llm = ChatOpenAI(temperature=0.7, openai_api_key=openai_api_key)
-    st.info(llm(input_text))
-            
 def main(cass_db):
   st.title("E.V.A.")
   with st.sidebar.form("form_upload", clear_on_submit=True):
@@ -29,6 +24,9 @@ def main(cass_db):
         cass_db.write_vectors_from_text(text, file.name)
         print(f"Uploaded: {file.name}")
       print("Uploaded complete!")
+      
+  if "sessionId" not in st.session_state:
+    st.session_state.messages = ""
   
   if "messages" not in st.session_state:
     st.session_state.messages = []

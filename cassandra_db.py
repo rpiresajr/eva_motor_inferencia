@@ -11,10 +11,11 @@ from datetime import datetime
 from langchain.docstore.document import Document
 from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
-
 from open_ai import Open_AI
+import uuid;
 
 load_dotenv(find_dotenv())
+FIELD_LIST = "row_id, session_id, created_date, created_at, attributes_blob, body_blob, vector, metadata_s"
 
 class CassandraDB:
   def __init__(self):
@@ -26,6 +27,16 @@ class CassandraDB:
     self.cluster = Cluster([os.environ.get("CASSANDRA_CLUSTER")], auth_provider=self.auth_provider)
     self.session = self.cluster.connect()
     self.ia = Open_AI(self)
+    
+  def insert_question(self, sessionId, text, page, vector):
+    table_name = self.questions_table
+    row_id = uuid.uuid4().hex
+    short_date = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
+    long_date = datetime.now().astimezone(self.fuso_horario)
+    metadata = {'source': sessionId, 'page': f"{page}", 'data': f"{long_date}",  }
+    
+    stmt = self.session.prepare(f"INSERT INTO {self.keyspace}.{table_name} ({FIELD_LIST}) VALUES (?,?,?,?,?,?,?,?);")
+    self.session.execute(stmt, [row_id, sessionId, short_date, long_date, '', text, vector, metadata])
 
   def write_vectors_from_text(self, text, filename):
     ids = self.get_dup_documents(filename)
@@ -48,22 +59,25 @@ class CassandraDB:
       print(inserted_ids[id])
       
   def write_questions_from_text(self, text, sessionId):
-    page = 0
-    date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
-    docs = []
+    vector = self.ia.get_embedding(text)
+    self.insert_question(str(sessionId), text, 1, vector)
+    print("ok")
+    # page = 0
+    # date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
+    # docs = []
     
-    chunks = self.ia.text_splitter.split_text(text)
+    # chunks = self.ia.text_splitter.split_text(text)
     
-    for chunk in chunks:
-      page += 1
-      metadata = {'sessionId': sessionId, 'page': f"{page}", 'data': f"{date_time}",  }
-      doc = Document(page_content=chunk, metadata=metadata)
-      docs.append(doc)
+    # for chunk in chunks:
+    #   page += 1
+    #   metadata = {'sessionId': sessionId, 'page': f"{page}", 'data': f"{date_time}",  }
+    #   doc = Document(page_content=chunk, metadata=metadata)
+    #   docs.append(doc)
     
-    vstore = self.ia.load_questions_db()
-    inserted_ids = vstore.add_documents(docs)
-    for id in range(len(inserted_ids)):
-      print(inserted_ids[id])
+    # vstore = self.ia.load_questions_db()
+    # inserted_ids = vstore.add_documents(docs)
+    # for id in range(len(inserted_ids)):
+    #   print(inserted_ids[id])
       
   def get_response(self, filtered_docs, question) -> str:
     chain = load_qa_chain(self.ia.llm, chain_type="stuff")
@@ -106,4 +120,7 @@ class CassandraDB:
     
     stmt = self.session.prepare(f"select row_id from {self.keyspace}.{table_name} WHERE metadata_s['source'] = '{filename}' ALLOW FILTERING;")
     return self.session.execute(stmt)
+  
+  
+    
     
