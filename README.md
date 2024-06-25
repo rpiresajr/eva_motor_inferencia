@@ -8,3 +8,14 @@ Engine: Refere-se ao motor ou mecanismo que impulsiona o processo de inferência
 Virtual: Indica que o processo é realizado em um ambiente digital ou simulado, geralmente sem intervenção humana direta.
 
 Analysis: Enfatiza a função principal do motor, que é analisar dados e inferir resultados ou decisões com base nesses dados.
+
+File .env:
+
+CASSANDRA_KEYSPACE=eva
+CASSANDRA_VECTOR_TABLE=eva_vector
+CASSANDRA_QUESTIONS_TABLE=questions
+CASSANDRA_USER=cassandra
+CASSANDRA_PASS=cassandra
+CASSANDRA_CLUSTER=localhost
+OPENAI_API_KEY=sk-****
+
