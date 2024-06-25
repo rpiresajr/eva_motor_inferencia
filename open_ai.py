@@ -1,6 +1,4 @@
 from dotenv import load_dotenv, find_dotenv
-import os
-#from openai import OpenAI
 from langchain_openai import OpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter

@@ -1,7 +1,5 @@
-import time
 import streamlit as st
 from langchain_openai import ChatOpenAI
-from langchain.chains import ConversationChain  
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.chains.question_answering import load_qa_chain
@@ -15,7 +13,11 @@ memory.save_context({"human_input": "assistant"}, {"output": "Você é um repres
 
 if "sessionUser" not in st.session_state:
     st.session_state.sessionUser = str(uuid.uuid4())
-    
+
+st.set_page_config(
+    page_title="EVA",
+    page_icon="👋",
+)
     
 def main(cass_db):
   st.title("E.V.A.")

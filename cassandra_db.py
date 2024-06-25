@@ -1,9 +1,5 @@
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
-from langchain_community.vectorstores import Cassandra
-from langchain.memory import VectorStoreRetrieverMemory
-from langchain.chains import ConversationChain
-from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv, find_dotenv
 import os
 from pytz import timezone
@@ -33,7 +29,7 @@ class CassandraDB:
     row_id = uuid.uuid4().hex
     short_date = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
     long_date = datetime.now()
-    metadata = {'source': sessionId, 'page': f"{page}", 'data': f"{long_date}",  }
+    metadata = {'source': sessionId, 'page': f"{page}", 'data': f"{long_date.astimezone(self.fuso_horario).strftime('%d/%m/%Y')}",  }
     
     stmt = self.session.prepare(f"INSERT INTO {self.keyspace}.{table_name} ({FIELD_LIST}) VALUES (?,?,?,?,?,?,?,?);")
     self.session.execute(stmt, [row_id, sessionId, short_date, long_date, '', text, vector, metadata])
@@ -50,7 +46,7 @@ class CassandraDB:
     
     for chunk in chunks:
       page += 1
-      metadata = {'source': filename, 'page': f"{page}", 'data': f"{date_time}",  }
+      metadata = {'source': filename, 'page': f"{page}", 'data': f"{datetime.now().astimezone(self.fuso_horario).strftime('%d/%m/%Y')}",  }
       doc = Document(page_content=chunk, metadata=metadata)
       docs.append(doc)
     
