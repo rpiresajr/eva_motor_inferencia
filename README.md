@@ -12,10 +12,16 @@ Analysis: Enfatiza a função principal do motor, que é analisar dados e inferi
 File .env:
 
 CASSANDRA_KEYSPACE=eva
+
 CASSANDRA_VECTOR_TABLE=eva_vector
+
 CASSANDRA_QUESTIONS_TABLE=questions
+
 CASSANDRA_USER=cassandra
+
 CASSANDRA_PASS=cassandra
+
 CASSANDRA_CLUSTER=localhost
+
 OPENAI_API_KEY=sk-****
 
