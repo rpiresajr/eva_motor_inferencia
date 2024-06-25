@@ -16,16 +16,29 @@ memory.save_context({"human_input": "assistant"}, {"output": "Você é um repres
 if "sessionUser" not in st.session_state:
     st.session_state.sessionUser = str(uuid.uuid4())
     
+    
 def main(cass_db):
   st.title("E.V.A.")
-  with st.sidebar.form("form_upload", clear_on_submit=True):
-    docs = st.file_uploader("Insira seus arquivos", type="pdf", accept_multiple_files=True)
-    if(st.form_submit_button("Enviar documentos", type='secondary')):
-      for file in docs:
-        text = extract_text(file)
-        cass_db.write_vectors_from_text(text, file.name)
-        print(f"Uploaded: {file.name}")
-      print("Uploaded complete!")
+  with st.sidebar:
+    with st.form("form_upload", clear_on_submit=True):
+      docs = st.file_uploader("Insira seus arquivos", type="pdf", accept_multiple_files=True)
+      if(st.form_submit_button("Enviar documentos", type='secondary')):
+        for file in docs:
+          text = extract_text(file)
+          cass_db.write_vectors_from_text(text, file.name)
+          print(f"Uploaded: {file.name}")
+        print("Uploaded complete!")
+      
+    # st.divider()
+    # st.subheader("Arquivos carregados:", divider=True)
+    with st.expander("Arquivos carregados..."):
+      files = cass_db.get_files()
+      
+      for file in list(files.keys()):
+        if st.button("Apagar", key=file):
+          cass_db.delete_document(file)
+          st.rerun()
+        st.markdown(f"{file} [{files[file]}]")
       
   if "sessionId" not in st.session_state:
     st.session_state.sessionId = str(uuid.uuid4())

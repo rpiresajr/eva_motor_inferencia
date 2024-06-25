@@ -100,6 +100,9 @@ class CassandraDB:
     return documents
   
   def delete_dup(self, rows):
+    if len(rows.current_rows) == 0:
+      return
+    
     table_name = self.vector_table
     
     if not table_name:
@@ -110,7 +113,6 @@ class CassandraDB:
       ids += f"'{row.row_id}',"
     ids = ids[:-1]
     ids = ids + ")"
-    print(ids)  
     self.session.execute(f"DELETE FROM {self.keyspace}.{table_name} WHERE row_id IN {ids};")
   
   def get_dup_documents(self, filename):
@@ -132,10 +134,39 @@ class CassandraDB:
     return self.session.execute(stmt)
   
   def unix_time(self, dt):
-    epoch = datetime.datetime.utcfromtimestamp(-3)
+    epoch = datetime.utcfromtimestamp(-3)
     delta = dt - epoch
     return delta.total_seconds()
 
   def unix_time_millis(self, dt):
     return int(self.unix_time(dt) * 1000.0)
+  
+  def get_metadatas(self):
+    table_name = self.vector_table
     
+    if not table_name:
+      raise ValueError('Necessário o nome da tabela.')
+    
+    stmt = self.session.prepare(f"select metadata_s from {self.keyspace}.{table_name};")
+    return self.session.execute(stmt)
+  
+  def get_row_id_by_name(self, filename):
+    table_name = self.vector_table
+    
+    if not table_name:
+      raise ValueError('Necessário o nome da tabela.')
+    
+    stmt = self.session.prepare(f"select row_id from {self.keyspace}.{table_name} WHERE metadata_s['source'] = '{filename}';")
+    return self.session.execute(stmt)
+    
+  def get_files(self):
+    files = []
+    metadatas = self.get_metadatas()
+    for row in metadatas:
+      files.append((row.metadata_s['source'], row.metadata_s['data']))
+    return dict(files)
+  
+  def delete_document(self, filename):
+    files = self.get_dup_documents(filename)
+    self.delete_dup(files)
+      
