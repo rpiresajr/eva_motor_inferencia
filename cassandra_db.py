@@ -32,7 +32,7 @@ class CassandraDB:
     table_name = self.questions_table
     row_id = uuid.uuid4().hex
     short_date = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
-    long_date = datetime.now().astimezone(self.fuso_horario)
+    long_date = datetime.now()
     metadata = {'source': sessionId, 'page': f"{page}", 'data': f"{long_date}",  }
     
     stmt = self.session.prepare(f"INSERT INTO {self.keyspace}.{table_name} ({FIELD_LIST}) VALUES (?,?,?,?,?,?,?,?);")
@@ -42,7 +42,8 @@ class CassandraDB:
     ids = self.get_dup_documents(filename)
     self.delete_dup(ids)
     page = 0
-    date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
+    # date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
+    date_time = self.unix_time_millis(datetime.now())
     docs = []
     
     chunks = self.ia.text_splitter.split_text(text)
@@ -121,6 +122,20 @@ class CassandraDB:
     stmt = self.session.prepare(f"select row_id from {self.keyspace}.{table_name} WHERE metadata_s['source'] = '{filename}' ALLOW FILTERING;")
     return self.session.execute(stmt)
   
-  
+  def get_sessions(self):
+    table_name = self.questions_table
+    date_time = datetime.now().astimezone(self.fuso_horario).strftime('%Y-%m-%d')
     
+    if not table_name:
+      raise ValueError('Necessário o nome da tabela.')
+    stmt = self.session.prepare(f"select created_date, session_id, created_at, body_blob from {self.keyspace}.{table_name} WHERE created_date = '{date_time}' ALLOW FILTERING;")
+    return self.session.execute(stmt)
+  
+  def unix_time(self, dt):
+    epoch = datetime.datetime.utcfromtimestamp(-3)
+    delta = dt - epoch
+    return delta.total_seconds()
+
+  def unix_time_millis(self, dt):
+    return int(self.unix_time(dt) * 1000.0)
     

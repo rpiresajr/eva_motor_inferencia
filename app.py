@@ -10,10 +10,12 @@ import uuid
 from cassandra_db import CassandraDB
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
-sessionId = uuid.uuid1()
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
 memory.save_context({"human_input": "assistant"}, {"output": "Você é um representante comercial querendo vender um produto ou uma franquia. Lembre todas as perguntas que o humano fizer"})
 
+if "sessionUser" not in st.session_state:
+    st.session_state.sessionUser = str(uuid.uuid4())
+    
 def main(cass_db):
   st.title("E.V.A.")
   with st.sidebar.form("form_upload", clear_on_submit=True):
@@ -26,7 +28,7 @@ def main(cass_db):
       print("Uploaded complete!")
       
   if "sessionId" not in st.session_state:
-    st.session_state.messages = ""
+    st.session_state.sessionId = str(uuid.uuid4())
   
   if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -64,7 +66,7 @@ def main(cass_db):
       resp = result['output_text'].replace("R$", "R\$")
       st.markdown(resp)
       st.session_state.messages.append({"role": "assistant", "content": resp})
-      cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", sessionId)
+      cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", st.session_state.sessionId)
       print(chain.memory.buffer)
     
 def introduce_yourself(memory):
@@ -96,6 +98,5 @@ def extract_text(pdf):
 
 if __name__ == '__main__':
   cass = CassandraDB()
-  
   main(cass)
   
