@@ -6,6 +6,9 @@ from langchain.chains.question_answering import load_qa_chain
 from PyPDF2 import PdfReader
 import uuid
 from cassandra_db import CassandraDB
+from ocr import OCR
+from templates import template1, template2, template_saudacao
+import json
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
@@ -15,24 +18,40 @@ if "sessionUser" not in st.session_state:
     st.session_state.sessionUser = str(uuid.uuid4())
 
 st.set_page_config(
-    page_title="EVA",
+    page_title="E.V.A.",
     page_icon="👋",
 )
+
+def send_email():
+  pass
     
-def main(cass_db):
-  st.title("E.V.A.")
+def main(cass_db, ocr):
+  st.title("E.V.A. - Engine for Virtual Attendant")
   with st.sidebar:
+    allow_img = st.toggle("Leitura de imagens", value=False)  
+    on = st.toggle("Ficar no contexto", value=True)
+    if on:
+      template = template1
+      st.write("Só Contexto")
+    else:
+      template = template2
+      st.write("Contexto + Internet")
+      
     with st.form("form_upload", clear_on_submit=True):
       docs = st.file_uploader("Insira seus arquivos", type="pdf", accept_multiple_files=True)
       if(st.form_submit_button("Enviar documentos", type='secondary')):
         for file in docs:
           text = extract_text(file)
+          if allow_img:
+            text += ocr.extract_from_images(file)
           cass_db.write_vectors_from_text(text, file.name)
           print(f"Uploaded: {file.name}")
         print("Uploaded complete!")
-      
-    # st.divider()
-    # st.subheader("Arquivos carregados:", divider=True)
+     
+    with st.form("form_new_chat", clear_on_submit=True):
+      if st.form_submit_button("Novo chat", type='secondary'):
+        st.session_state.clear()
+        
     with st.expander("Arquivos carregados..."):
       files = cass_db.get_files()
       
@@ -62,16 +81,6 @@ def main(cass_db):
     with st.chat_message("assistant"):
       docs = cass_db.get_documents(prompt)
       
-      template = """Você é um chatbot conversando com um humano. Se não souber a resposta responda que não sabe. Responda apenas se encontrado nos documentos.
-
-      Com as partes extraídas dos documentos e a pergunta, crie uma resposta informal final.
-
-      {context}
-
-      {chat_history}
-      Human: {human_input}
-      Chatbot:"""
-
       prompt2 = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
       chain = load_qa_chain(ChatOpenAI(temperature=0.4, model="gpt-4o"), chain_type="stuff", memory=memory, prompt=prompt2)
 
@@ -85,17 +94,7 @@ def main(cass_db):
       print(chain.memory.buffer)
     
 def introduce_yourself(memory):
-  template = """Você é um chatbot da empresa JAH conversando com um humano.
-
-  Com as partes extraídas dos documentos e a pergunta, crie uma resposta final.
-
-  {context}
-
-  {chat_history}
-  Human: {human_input}
-  Chatbot:"""
-
-  prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template)
+  prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template_saudacao)
   chain = load_qa_chain(ChatOpenAI(temperature=0.9, model="gpt-4o"), chain_type="stuff", memory=memory, prompt=prompt)
 
   query = "Se apresente de maneira informal para o usuário falando sobre é um assistente da JAH e irá ajudá-lo"
@@ -113,5 +112,6 @@ def extract_text(pdf):
 
 if __name__ == '__main__':
   cass = CassandraDB()
-  main(cass)
+  ocr = OCR()
+  main(cass, ocr)
   
