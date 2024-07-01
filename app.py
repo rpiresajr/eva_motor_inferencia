@@ -23,8 +23,7 @@ client = OpenAI(
 
 gmailapi = GmailAPI()
 
-functions_map = { "SendMessage": gmailapi.send_message }
-
+functions_map = { "SearchEmailMessages": gmailapi.search_messages, "SendMessage": gmailapi.send_message }
 mensagens = []
 
 if "sessionUser" not in st.session_state:
@@ -103,16 +102,16 @@ def main(cass_db, ocr):
       resp = result['output_text'].replace("R$", "R\$")
       st.markdown(resp)
       st.session_state.messages.append({"role": "assistant", "content": resp})
-      # cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", st.session_state.sessionId)
+      cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", st.session_state.sessionId)
       print(chain.memory.buffer)
-      # mensagens = st.session_state.messages
+      mensagens = st.session_state.messages
       # mensagens.append({
       #       "role": "user",
       #       "content": chain.memory.buffer,
       #   })
     
-      # response = send_ai()
-      # print(response)
+      response = send_ai()
+      print(response)
     
 def introduce_yourself(memory):
   prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template_saudacao)
