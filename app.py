@@ -8,11 +8,24 @@ import uuid
 from cassandra_db import CassandraDB
 from ocr import OCR
 from templates import template1, template2, template_saudacao
+from gmail import GmailAPI
+from functions import functions
+from openai import OpenAI
 import json
 
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
 memory.save_context({"human_input": "assistant"}, {"output": "Você é um representante comercial querendo vender um produto ou uma franquia. Lembre todas as perguntas que o humano fizer"})
+
+client = OpenAI(
+    api_key=openai_api_key,
+)
+
+gmailapi = GmailAPI()
+
+functions_map = { "SendMessage": gmailapi.send_message }
+
+mensagens = []
 
 if "sessionUser" not in st.session_state:
     st.session_state.sessionUser = str(uuid.uuid4())
@@ -90,8 +103,16 @@ def main(cass_db, ocr):
       resp = result['output_text'].replace("R$", "R\$")
       st.markdown(resp)
       st.session_state.messages.append({"role": "assistant", "content": resp})
-      cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", st.session_state.sessionId)
+      # cass_db.write_questions_from_text(f"Pergunta: {prompt}\nResposta: {resp}", st.session_state.sessionId)
       print(chain.memory.buffer)
+      # mensagens = st.session_state.messages
+      # mensagens.append({
+      #       "role": "user",
+      #       "content": chain.memory.buffer,
+      #   })
+    
+      # response = send_ai()
+      # print(response)
     
 def introduce_yourself(memory):
   prompt = PromptTemplate(input_variables=["chat_history", "human_input", "context"], template=template_saudacao)
@@ -100,7 +121,6 @@ def introduce_yourself(memory):
   query = "Se apresente de maneira informal para o usuário falando sobre é um assistente da JAH e irá ajudá-lo"
   result = chain({"input_documents": [], "human_input": query}, return_only_outputs=True)
   return result['output_text']
-  # st.markdown(result['output_text'])
   
 def extract_text(pdf):
   text = ""
@@ -109,6 +129,39 @@ def extract_text(pdf):
       page_text = page.extract_text()
       text += page_text
   return text
+
+def send_ai():
+    response = chat_completion = client.chat.completions.create(
+        messages=st.session_state.messages,
+        tools=functions,
+        tool_choice="auto",
+        model="gpt-4o",
+        timeout=5000
+    )
+    
+    response_message = response.choices[0].message
+    tool_calls = response_message.tool_calls
+    
+    mensagens.append(response_message)
+
+    if tool_calls:
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_to_call = functions_map[function_name]
+            function_args = json.loads(tool_call.function.arguments)
+            returned = function_to_call(**function_args)
+            mensagens.append(
+                {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": json.dumps(returned),
+                }
+            )
+            
+        # return send_ai()
+    return response_message
+
 
 if __name__ == '__main__':
   cass = CassandraDB()
